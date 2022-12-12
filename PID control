@@ -1,0 +1,31 @@
+import time
+from PID import PIDq
+from board import SCL, SDA
+import busio
+from adafruit_pca9685 import PCA9685
+
+# Set the initial values for the PID controllers
+pid1 = PID(kp=1.0, ki=0.1, kd=0.01)
+pid2 = PID(kp=1.0, ki=0.1, kd=0.01)
+
+# Set the initial setpoint for the PID controllers
+setpoint = 0
+
+while True:
+    # Read the current orientation from the inertial sensor
+    orientation = read_inertial_sensor()
+
+    # Update the PID controllers with the current orientation
+    pid1.update(orientation)
+    pid2.update(orientation)
+
+    # Calculate the control output for the motors
+    motor1_control = pid1.output
+    motor2_control = pid2.output
+
+    # Set the control output for the motors
+    set_motor1_control(motor1_control)
+    set_motor2_control(motor2_control)
+
+    # Wait for a short time before repeating the loop
+    time.sleep(0.01)
