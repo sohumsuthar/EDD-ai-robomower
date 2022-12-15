@@ -1,0 +1,109 @@
+import RPi.GPIO as GPIO
+import pca9685
+import inertial_sensor
+import video_feed
+
+import PID
+import time
+
+import math
+import numpy as np
+
+class LawnMower:
+    def __init__(self, motor_controller, inertial_sensor, video_feed):
+        self.motor_controller = motor_controller
+        self.inertial_sensor = inertial_sensor
+        self.video_feed = video_feed
+
+        self.mowed_area = set()
+
+    def drive(self, speed, direction):
+        pass
+
+    def mow(self, speed):
+        pass
+
+    def localize(self):
+        pass
+
+    def avoid_obstacles(self):
+        pass
+
+    def mow_lawn(self):
+        while True:
+            self.localize()
+            self.avoid_obstacles()
+
+            for _ in range(3):
+                self.drive(1, "forward")
+                self.mow(1)
+                self.drive(1, "right")
+
+            self.mowed_area.add(self.localize())
+
+    def drive(self, speed, direction):
+        self.motor_controller.set_motor_speed(0, speed)
+        self.motor_controller.set_motor_speed(1, speed)
+
+        if direction == "forward":
+            self.motor_controller.set_motor_direction(0, pca9685.FORWARD)
+            self.motor_controller.set_motor_direction(1, pca9685.FORWARD)
+        elif direction == "reverse":
+            self.motor_controller.set_motor_direction(0, pca9685.REVERSE)
+            self.motor_controller.set_motor_direction(1, pca9685.REVERSE)
+        elif direction == "left":
+            self.motor_controller.set_motor_direction(0, pca9685.REVERSE)
+            self.motor_controller.set_motor_direction(1, pca9685.FORWARD)
+        elif direction == "right":
+            self.motor_controller.set_motor_direction(0, pca9685.FORWARD)
+            self.motor_controller.set_motor_direction(1, pca9685.REVERSE)
+    def mow(self, speed):
+        self.motor_controller.set_motor_speed(2, speed)
+
+    def localize(self):
+        orientation = self.inertial_sensor.get_orientation()
+
+        x = math.cos(orientation)
+        y = math.sin(orientation)
+        position = np.array([x, y])
+
+        return position
+
+    def avoid_obstacles(self):
+        frame = self.video_feed.get_frame()
+
+        grass_regions = self.model.predict(frame)
+
+        if any(region == "non-grass" for region in grass_regions):
+            self.drive(1, "reverse")
+            self.drive(1, "right")
+            self.drive(1, "reverse")
+            self.drive(1, "right")
+
+    def drive(self, speed, direction):
+        pid_left = PID.PID(kp=0.5, ki=0.1, kd=0.01)
+        pid_right = PID.PID(kp=0.5, ki=0.1, kd=0.01)
+
+        pid_left.setPoint(direction)
+        pid_right.setPoint(direction)
+
+        self.motor_controller.set_motor_speed(0, speed)
+        self.motor_controller.set_motor_speed(1, speed)
+
+        while True:
+            orientation = self.inertial_sensor.get_orientation()
+
+            correction_left = pid_left.update(orientation)
+            correction_right = pid_right.update(orientation)
+
+            self.motor_controller.set_motor_speed(0, speed + correction_left)
+            self.motor_controller.set_motor_speed(1, speed + correction_right)
+
+            time.sleep(0.01)
+
+    def is_on_grass(self):
+        frame = self.video_feed.get_frame()
+
+        prediction = self.model.predict(frame)
+
+        return prediction == "grass"
